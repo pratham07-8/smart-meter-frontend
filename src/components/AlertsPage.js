@@ -24,18 +24,84 @@ const AlertsPage = () => {
   const [activeTab, setActiveTab] = useState('alerts');
   const [showChatbot, setShowChatbot] = useState(false);
   const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchAlerts = async () => {
-      try{
+      try {
+        setLoading(true);
+        setError(null);
         const res = await api.get('/alerts');
-        setAlerts(res.data);
+        
+        // Map API response to include icon components and colors
+        const mappedAlerts = res.data.map(alert => ({
+          ...alert,
+          icon: getAlertIcon(alert.type || alert.severity),
+          color: getAlertColor(alert.severity)
+        }));
+        
+        setAlerts(mappedAlerts);
       } catch (err) {
-        console.error("error fetching alerts",err);
+        console.error("error fetching alerts", err);
+        setError("Failed to load alerts. Please try again later.");
+        // Set some default alerts for demo purposes when API fails
+        setAlerts([
+          {
+            id: 1,
+            title: 'High Energy Consumption',
+            description: 'Your energy usage is 25% higher than usual today.',
+            severity: 'warning',
+            timestamp: '2 hours ago',
+            icon: AlertTriangle,
+            color: '#ff9500'
+          },
+          {
+            id: 2,
+            title: 'Device Malfunction',
+            description: 'Smart meter connection unstable.',
+            severity: 'critical',
+            timestamp: '30 minutes ago',
+            icon: AlertCircle,
+            color: '#ff3b30'
+          }
+        ]);
+      } finally {
+        setLoading(false);
       }
     };
+
     fetchAlerts();
   }, []);
+
+  // Helper function to get icon based on alert type
+  const getAlertIcon = (type) => {
+    switch(type) {
+      case 'critical':
+      case 'error':
+        return AlertCircle;
+      case 'warning':
+        return AlertTriangle;
+      case 'info':
+        return Bell;
+      default:
+        return AlertTriangle;
+    }
+  };
+
+  // Helper function to get color based on severity
+  const getAlertColor = (severity) => {
+    switch(severity) {
+      case 'critical':
+        return '#ff3b30';
+      case 'warning':
+        return '#ff9500';
+      case 'info':
+        return '#007aff';
+      default:
+        return '#ff9500';
+    }
+  };
   
   const [suggestions, setSuggestions] = useState([
     {
@@ -132,121 +198,146 @@ const AlertsPage = () => {
           </div>
         </header>
 
-        {/* Active Alerts */}
-        <section className="alerts-section">
-          <h2 className="section-title">Active Alerts</h2>
-          <div className="alerts-list">
-            {alerts.map((alert) => (
-              <div key={alert.id} className={`alert-card ${alert.severity}`}>
-                <div className="alert-header">
-                  <div className="alert-icon-container" style={{ backgroundColor: alert.color + '20' }}>
-                    <alert.icon className="alert-icon" style={{ color: alert.color }} />
-                  </div>
-                  <div className="alert-content">
-                    <h3 className="alert-title">{alert.title}</h3>
-                    <p className="alert-description">{alert.description}</p>
-                  </div>
-                  <div className="alert-actions">
-                    <span className="alert-timestamp">{alert.timestamp}</span>
-                    <button 
-                      className="alert-dismiss"
-                      onClick={() => handleDismissAlert(alert.id)}
-                    >
-                      <XCircle className="dismiss-icon" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
+        {/* Error Message */}
+        {error && (
+          <div className="error-banner">
+            <AlertCircle className="error-icon" />
+            <span>{error}</span>
           </div>
-        </section>
+        )}
 
-        {/* AI Suggestions */}
-        <section className="suggestions-section">
-          <h2 className="section-title">AI Suggestions</h2>
-          <div className="suggestions-list">
-            {suggestions.map((suggestion) => (
-              <div key={suggestion.id} className={`suggestion-card ${suggestion.applied ? 'applied' : ''}`}>
-                <div className="suggestion-header">
-                  <div className="suggestion-icon-container" style={{ backgroundColor: suggestion.color + '20' }}>
-                    <suggestion.icon className="suggestion-icon" style={{ color: suggestion.color }} />
+        {/* Loading State */}
+        {loading ? (
+          <div className="loading-container">
+            <div className="spinner"></div>
+            <p>Loading alerts...</p>
+          </div>
+        ) : (
+          <>
+            {/* Active Alerts */}
+            <section className="alerts-section">
+              <h2 className="section-title">Active Alerts</h2>
+              <div className="alerts-list">
+                {alerts.length === 0 ? (
+                  <div className="no-alerts">
+                    <CheckCircle className="no-alerts-icon" />
+                    <p>No active alerts. Everything is running smoothly!</p>
                   </div>
-                  <div className="suggestion-content">
-                    <h3 className="suggestion-title">{suggestion.title}</h3>
-                    <p className="suggestion-description">{suggestion.description}</p>
-                  </div>
-                  <div className="suggestion-actions">
-                    {suggestion.applied ? (
-                      <div className="applied-indicator">
-                        <CheckCircle className="applied-icon" />
-                        <span>Applied</span>
+                ) : (
+                  alerts.map((alert) => (
+                    <div key={alert.id} className={`alert-card ${alert.severity}`}>
+                      <div className="alert-header">
+                        <div className="alert-icon-container" style={{ backgroundColor: alert.color + '20' }}>
+                          <alert.icon className="alert-icon" style={{ color: alert.color }} />
+                        </div>
+                        <div className="alert-content">
+                          <h3 className="alert-title">{alert.title}</h3>
+                          <p className="alert-description">{alert.description}</p>
+                        </div>
+                        <div className="alert-actions">
+                          <span className="alert-timestamp">{alert.timestamp}</span>
+                          <button 
+                            className="alert-dismiss"
+                            onClick={() => handleDismissAlert(alert.id)}
+                          >
+                            <XCircle className="dismiss-icon" />
+                          </button>
+                        </div>
                       </div>
-                    ) : (
-                      <button 
-                        className="suggestion-apply"
-                        onClick={() => handleApplySuggestion(suggestion.id)}
-                        style={{ backgroundColor: suggestion.color }}
-                      >
-                        Apply
-                      </button>
-                    )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+
+            {/* AI Suggestions */}
+            <section className="suggestions-section">
+              <h2 className="section-title">AI Suggestions</h2>
+              <div className="suggestions-list">
+                {suggestions.map((suggestion) => (
+                  <div key={suggestion.id} className={`suggestion-card ${suggestion.applied ? 'applied' : ''}`}>
+                    <div className="suggestion-header">
+                      <div className="suggestion-icon-container" style={{ backgroundColor: suggestion.color + '20' }}>
+                        <suggestion.icon className="suggestion-icon" style={{ color: suggestion.color }} />
+                      </div>
+                      <div className="suggestion-content">
+                        <h3 className="suggestion-title">{suggestion.title}</h3>
+                        <p className="suggestion-description">{suggestion.description}</p>
+                      </div>
+                      <div className="suggestion-actions">
+                        {suggestion.applied ? (
+                          <div className="applied-indicator">
+                            <CheckCircle className="applied-icon" />
+                            <span>Applied</span>
+                          </div>
+                        ) : (
+                          <button 
+                            className="suggestion-apply"
+                            onClick={() => handleApplySuggestion(suggestion.id)}
+                            style={{ backgroundColor: suggestion.color }}
+                          >
+                            Apply
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Alert History */}
+            <section className="history-section">
+              <h2 className="section-title">Alert History</h2>
+              <div className="history-list">
+                <div className="history-item">
+                  <div className="history-icon">
+                    <AlertTriangle className="history-icon-svg" />
+                  </div>
+                  <div className="history-content">
+                    <h4 className="history-title">High Consumption Alert</h4>
+                    <p className="history-description">Energy usage exceeded normal levels</p>
+                    <span className="history-timestamp">3 days ago</span>
+                  </div>
+                  <div className="history-status resolved">
+                    <CheckCircle className="status-icon" />
+                    <span>Resolved</span>
+                  </div>
+                </div>
+                
+                <div className="history-item">
+                  <div className="history-icon">
+                    <AlertCircle className="history-icon-svg" />
+                  </div>
+                  <div className="history-content">
+                    <h4 className="history-title">Device Offline</h4>
+                    <p className="history-description">Smart meter connection lost</p>
+                    <span className="history-timestamp">1 week ago</span>
+                  </div>
+                  <div className="history-status resolved">
+                    <CheckCircle className="status-icon" />
+                    <span>Resolved</span>
+                  </div>
+                </div>
+                
+                <div className="history-item">
+                  <div className="history-icon">
+                    <Bell className="history-icon-svg" />
+                  </div>
+                  <div className="history-content">
+                    <h4 className="history-title">Maintenance Reminder</h4>
+                    <p className="history-description">HVAC system maintenance due</p>
+                    <span className="history-timestamp">2 weeks ago</span>
+                  </div>
+                  <div className="history-status resolved">
+                    <CheckCircle className="status-icon" />
+                    <span>Resolved</span>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Alert History */}
-        <section className="history-section">
-          <h2 className="section-title">Alert History</h2>
-          <div className="history-list">
-            <div className="history-item">
-              <div className="history-icon">
-                <AlertTriangle className="history-icon-svg" />
-              </div>
-              <div className="history-content">
-                <h4 className="history-title">High Consumption Alert</h4>
-                <p className="history-description">Energy usage exceeded normal levels</p>
-                <span className="history-timestamp">3 days ago</span>
-              </div>
-              <div className="history-status resolved">
-                <CheckCircle className="status-icon" />
-                <span>Resolved</span>
-              </div>
-            </div>
-            
-            <div className="history-item">
-              <div className="history-icon">
-                <AlertCircle className="history-icon-svg" />
-              </div>
-              <div className="history-content">
-                <h4 className="history-title">Device Offline</h4>
-                <p className="history-description">Smart meter connection lost</p>
-                <span className="history-timestamp">1 week ago</span>
-              </div>
-              <div className="history-status resolved">
-                <CheckCircle className="status-icon" />
-                <span>Resolved</span>
-              </div>
-            </div>
-            
-            <div className="history-item">
-              <div className="history-icon">
-                <Bell className="history-icon-svg" />
-              </div>
-              <div className="history-content">
-                <h4 className="history-title">Maintenance Reminder</h4>
-                <p className="history-description">HVAC system maintenance due</p>
-                <span className="history-timestamp">2 weeks ago</span>
-              </div>
-              <div className="history-status resolved">
-                <CheckCircle className="status-icon" />
-                <span>Resolved</span>
-              </div>
-            </div>
-          </div>
-        </section>
+            </section>
+          </>
+        )}
       </main>
 
       {/* AI Chatbot */}
